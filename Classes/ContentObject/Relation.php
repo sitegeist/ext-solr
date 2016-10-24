@@ -302,6 +302,7 @@ class Relation
         $pageSelector = GeneralUtility::makeInstance('TYPO3\\CMS\\Frontend\\Page\\PageRepository');
         $whereClause  = $pageSelector->enableFields($foreignTableName);
         $relatedRecords = $this->getRelatedRecords($foreignTableName, $selectUids, $whereClause);
+
         foreach ($relatedRecords as $relatedRecord) {
             $resolveRelatedValue = $this->resolveRelatedValue(
                 $relatedRecord,
@@ -344,12 +345,17 @@ class Relation
 
         $value = $relatedRecord[$foreignTableLabelField];
 
-        if (isset($foreignTableTca['columns'][$foreignTableLabelField]['config']['foreign_table'])
+        if (
+            !empty($foreignTableName)
+            && isset($foreignTableTca['columns'][$foreignTableLabelField]['config']['foreign_table'])
             && $this->configuration['enableRecursiveValueResolution']
         ) {
             // backup
             $backupRecord = $parentContentObject->data;
-            $backupField = $this->configuration['foreignLabelField'];
+            $backupConfiguration = $this->configuration;
+
+            // adjust configuration for next level
+            $this->configuration['localField'] = $foreignTableLabelField;
             $parentContentObject->data = $relatedRecord;
             if (strpos($this->configuration['foreignLabelField'],
                     '.') !== false
@@ -362,14 +368,14 @@ class Relation
 
             // recursion
             $value = array_pop($this->getRelatedItemsFromForeignTable(
-                $foreignTableLabelField,
-                intval($value),
+                $foreignTableName,
+                $relatedRecord['uid'],
                 $foreignTableTca['columns'][$foreignTableLabelField],
                 $parentContentObject
             ));
 
             // restore
-            $this->configuration['foreignLabelField'] = $backupField;
+            $this->configuration= $backupConfiguration;
             $parentContentObject->data = $backupRecord;
         }
 
